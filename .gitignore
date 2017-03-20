@@ -1,0 +1,10 @@
+*.sln
+L/.vs/L/v14/.suo
+*.db
+L/L.vcxproj
+*.filters
+M/.vs/M/v14/.suo
+*.vcxproj
+N/.vs/N/v14/.suo
+*.suo
+S/S.VC.VC.opendb
