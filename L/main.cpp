@@ -1,17 +1,33 @@
 #include <iostream>
 #include <cstdlib>
 #include <cstring>
+#include <stdexcept>
+
+class BigIntegerDivisionByZero : std::logic_error {
+public:
+	BigIntegerDivisionByZero();
+};
+
+BigIntegerDivisionByZero::BigIntegerDivisionByZero() : std::logic_error("Division by zero") {}
+
+class BigIntegerOverflow : std::runtime_error {
+public:
+	BigIntegerOverflow();
+};
+
+BigIntegerOverflow::BigIntegerOverflow() : std::runtime_error("Division by zero") {}
 
 
 class BigInt {
 private:
-	static const int BASE = 10;
-	static const int DIGIT_COUNT = 1;
+	static const int BASE = 1000000;
+	static const int DIGIT_COUNT = 6;
+	static const int MAX = 20000 / DIGIT_COUNT + 2;
 	int *values;
 	int size;
 	int sign;
 	void set_size(const int);
-	int assign_number(const int &);
+	void assign_number(const int &);
 	friend BigInt abs_sum(const BigInt &, const BigInt &, int sign = 1);
 	friend BigInt abs_diff(const BigInt &, const BigInt &, int sign = 1);
 	friend BigInt abs_mult(const BigInt &, const BigInt &, int sign = 1);
@@ -25,7 +41,7 @@ public:
 	~BigInt();
 	friend std::ostream &operator<<(std::ostream &, const BigInt &);
 	friend std::istream &operator >> (std::istream &, BigInt &);
-	friend int a_bigger_b(const BigInt &, const BigInt &);
+	friend int abs_a_bigger_b(const BigInt &, const BigInt &);
 	BigInt &operator=(const BigInt &);
 	BigInt &operator=(const char *);
 	BigInt &operator=(const long long &);
@@ -68,6 +84,9 @@ BigInt::BigInt(const char *string) {
 }
 
 void BigInt::set_size(const int size) {
+	if (size > this->MAX) {
+		throw BigIntegerOverflow();
+	}
 	this->size = size;
 	this->values = new int[this->size];
 	for (int i = 0; i < this->size; i++) {
@@ -75,7 +94,7 @@ void BigInt::set_size(const int size) {
 	}
 }
 
-int BigInt::assign_number(const int &value) {
+void BigInt::assign_number(const int &value) {
 	int number = abs(value);
 	if (value < 0) {
 		this->sign = -1;
@@ -89,16 +108,15 @@ int BigInt::assign_number(const int &value) {
 		v *= BASE;
 		n++;
 	}
-	return n;
-}
-
-BigInt::BigInt(const long long &value) {
-	int number = abs(value);
-	set_size(this->assign_number(value));
+	set_size(n);
 	for (int i = 0; i < this->size; i++) {
 		this->values[i] = number % BASE;
 		number = number / BASE;
 	}
+}
+
+BigInt::BigInt(const long long &value) {
+	assign_number(value);
 }
 
 BigInt::BigInt(const BigInt &that) {
@@ -116,18 +134,18 @@ BigInt::~BigInt() {
 }
 
 std::ostream &operator<<(std::ostream &os, const BigInt &temp) {
-	int new_size = temp.real_size();
-	if (new_size == 0) {
+	int size = temp.real_size();
+	if (size == 0) {
 		os << '0';
 	}
 	else {
 		if (temp.sign == -1) {
 			os << '-';
 		}
-		for (int i = new_size - 1; i >= 0; i--) {
+		for (int i = size - 1; i >= 0; i--) {
 			int d = temp.BASE / 10;
 			int &v = temp.values[i];
-			while (d > v + 1 && i < new_size - 1) {
+			while (d > v + 1 && i < size - 1) {
 				os << '0';
 				d /= 10;
 			}
@@ -138,7 +156,7 @@ std::ostream &operator<<(std::ostream &os, const BigInt &temp) {
 }
 
 void BigInt::assign(const char *string) {
-	int length = (int)strlen(string);
+	int length = strlen(string);
 	int k = 0;
 	if (string[0] == '-') {
 		this->sign = -1;
@@ -187,19 +205,8 @@ BigInt &BigInt::operator=(const char *string) {
 }
 
 BigInt &BigInt::operator=(const long long &value) {
-	int number = abs(value);
-	int n = this->assign_number(value);
-	if (n > this->size) {
-		delete[]this->values;
-		set_size(n);
-	}
-	for (int i = 0; i < n; i++) {
-		this->values[i] = number % BASE;
-		number = number / BASE;
-	}
-	for (int i = n; i < this->size; i++) {
-		this->values[i] = 0;
-	}
+	delete[]this->values;
+	this->assign_number(value);
 	return *this;
 }
 
@@ -209,7 +216,7 @@ BigInt &BigInt::operator+=(const BigInt &that) {
 }
 
 BigInt &BigInt::operator+=(const long long &that) {
-	*this = *this + BigInt((long long)that);
+	*this = *this + that;
 	return *this;
 }
 
@@ -219,7 +226,7 @@ BigInt &BigInt::operator-=(const BigInt &that) {
 }
 
 BigInt &BigInt::operator-=(const long long &that) {
-	*this = *this - BigInt((long long)that);
+	*this = *this - that;
 	return *this;
 }
 
@@ -229,7 +236,7 @@ BigInt &BigInt::operator*=(const BigInt &that) {
 }
 
 BigInt &BigInt::operator*=(const long long &that) {
-	*this = *this * BigInt((long long)that);
+	*this = *this * that;
 	return *this;
 }
 
@@ -239,12 +246,12 @@ BigInt &BigInt::operator/=(const BigInt &that) {
 }
 
 BigInt &BigInt::operator/=(const long long &that) {
-	*this = *this / BigInt((long long)that);
+	*this = *this / that;
 	return *this;
 }
 
 BigInt &BigInt::operator++() {
-	*this += BigInt((long long)1);
+	*this += 1;
 	return *this;
 }
 
@@ -255,7 +262,7 @@ BigInt BigInt::operator++(int) {
 }
 
 BigInt &BigInt::operator--() {
-	*this -= BigInt((long long)1);
+	*this -= 1;
 	return *this;
 }
 
@@ -265,37 +272,26 @@ BigInt BigInt::operator--(int) {
 	return old;
 }
 
-int a_bigger_b(const BigInt &a, const BigInt &b) {
+int abs_a_bigger_b(const BigInt &a, const BigInt &b) {
 	int flag = 0;
 	int real_size_a = a.real_size();
 	int real_size_b = b.real_size();
-	if (real_size_a > real_size_b) {
-		flag = 1;
-	}
-	else if (real_size_b > real_size_a) {
-		flag = -1;
+	if (real_size_a != real_size_b) {
+		flag = real_size_a - real_size_b;
 	}
 	else {
-		for (int i = real_size_a - 1; i >= 0 && flag == 0; --i) {
-			if (a.values[i] > b.values[i]) {
-				flag = 1;
-			}
-			if (a.values[i] < b.values[i]) {
-				flag = -1;
-			}
+		int i = real_size_a - 1;
+		while (i >= 0 && a.values[i] == b.values[i]) {
+			i--;
 		}
+		flag = a.values[i] - b.values[i];
 	}
 	return flag;
 }
 
 BigInt abs_sum(const BigInt &a, const BigInt &b, int sign) {
 	size_t res_size;
-	if (a_bigger_b(a, b) == 1) {
-		res_size = a.size + 1;
-	}
-	else {
-		res_size = b.size + 1;
-	}
+	res_size = (a.size < b.size ? b.size : a.size) + 1;
 	BigInt res((size_t)res_size);
 	int rest = 0;
 	int sum = 0;
@@ -310,6 +306,9 @@ BigInt abs_sum(const BigInt &a, const BigInt &b, int sign) {
 		res.values[i] = (sum + rest) % res.BASE;
 		rest = (sum + rest) / res.BASE;
 	}
+	if (res.real_size() > res.MAX) {
+		throw BigIntegerOverflow();
+	}
 	res.sign = sign;
 	return res;
 }
@@ -319,7 +318,7 @@ BigInt operator+(const BigInt &a, const BigInt &b) {
 		return abs_sum(a, b, a.sign);
 	}
 	else {
-		if (a_bigger_b(a, b) >= 0) {
+		if (abs_a_bigger_b(a, b) >= 0) {
 			return abs_diff(a, b, a.sign);
 		}
 		else {
@@ -361,7 +360,7 @@ BigInt abs_diff(const BigInt &a, const BigInt &b, int sign) {
 
 BigInt operator-(const BigInt &a, const BigInt &b) {
 	if (a.sign == b.sign) {
-		if (a_bigger_b(a, b) >= 0) {
+		if (abs_a_bigger_b(a, b) >= 0) {
 			return abs_diff(a, b, a.sign);
 		}
 		else {
@@ -400,6 +399,9 @@ BigInt abs_mult(const BigInt &a, const BigInt &b, int sign) {
 			rest = mult / res.BASE;
 		}
 	}
+	if (res.real_size() > res.MAX) {
+		throw BigIntegerOverflow();
+	}
 	res.sign = sign;
 	return res;
 }
@@ -418,7 +420,11 @@ BigInt operator*(const long long &a, const BigInt &b) {
 }
 
 BigInt operator/(const BigInt &a, const BigInt &b) {
-	if (a_bigger_b(a, b) == -1) {
+	BigInt zero((long long)0);
+	if (abs_a_bigger_b(b, zero) == 0) {
+		throw BigIntegerDivisionByZero();
+	}
+	if (abs_a_bigger_b(a, b) < 0) {
 		BigInt res((long long)0);
 		res.sign = 1;
 		return res;
@@ -435,7 +441,7 @@ BigInt operator/(const BigInt &a, const BigInt &b) {
 		int res_value;
 		while (k >= 0) {
 			res_value = 0;
-			while (a_bigger_b(temp, b) >= 0) {
+			while (abs_a_bigger_b(temp, b) >= 0) {
 				temp = abs_diff(temp, b);
 				res_value++;
 			}

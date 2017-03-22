@@ -1,7 +1,16 @@
 #include <iostream>
 #include <cstdlib>
+#include <stdexcept>
+#include <cstring>
 using namespace std;
 
+
+class RationalDivisionByZero : logic_error {
+public:
+	RationalDivisionByZero();
+};
+
+RationalDivisionByZero::RationalDivisionByZero(): logic_error("Error") {}
 
 class Rational {
 private:
@@ -34,7 +43,7 @@ public:
 	int getNumerator() const;
 	int getDenominator() const;
 	friend istream &operator >> (istream &, Rational &);
-	friend ostream &operator<<(ostream &, Rational &);
+	friend ostream &operator<<(ostream &, const Rational &);
 	friend Rational operator+(const Rational &, const Rational &);
 	friend Rational operator+(const Rational &, const int &);
 	friend Rational operator+(const int &, const Rational &);
@@ -153,7 +162,7 @@ istream &operator >> (istream &is, Rational &value) {
 	return is;
 }
 
-ostream &operator<<(ostream &os, Rational &value) {
+ostream &operator<<(ostream &os, const Rational &value) {
 	if (value.q == 1) {
 		os << value.p;
 	}
@@ -212,6 +221,9 @@ Rational operator*(const int &a, const Rational &b) {
 }
 
 Rational operator/(const Rational &a, const Rational &b) {
+	if (b.p == 0) {
+		throw RationalDivisionByZero();
+	}
 	Rational res;
 	int sign = 1;
 	if (a.p * b.p < 0) {
@@ -405,7 +417,7 @@ Rational operator+(const Rational &that) {
 }
 
 Rational &Rational::operator++() {
-	*this += Rational(1);
+	this->p += this->q;
 	return *this;
 }
 
@@ -416,7 +428,7 @@ Rational Rational::operator++(int) {
 }
 
 Rational &Rational::operator--() {
-	*this -= Rational(1);
+	this->p -= this->q;
 	return *this;
 }
 
@@ -440,6 +452,20 @@ int main(int argc, char** argv) {
 
 	cout << r1 << endl;
 	cout << r2 << endl;
+
+
+	try {
+		cout << 1 / r1 << endl;
+	}
+	catch (const RationalDivisionByZero& ex) {
+		cout << "Cannot get reciprocal of r1." << endl;
+	}
+
+	try {
+        cout << rc / r2 << endl;
+    } catch (const RationalDivisionByZero& ex) {
+        cout << "Cannot divide by r2." << endl;
+    }
 
 	cout << (r1 < r2) << endl;
 	cout << (r1 <= r2) << endl;
@@ -482,6 +508,5 @@ int main(int argc, char** argv) {
 	cout << (r1 += r2 /= 3) << endl;
 	cout << r1 << endl;
 	cout << r2 << endl;
-	system("pause");
 	return 0;
 }

@@ -11,7 +11,7 @@ private:
 	int size;
 	int sign;
 	void set_size(const int);
-	int assign_number(const int &);
+	void assign_number(const int &);
 	friend int a_bigger_b(const BigInt &, const BigInt &);
 	int real_size() const;
 	void assign(const char *);
@@ -46,7 +46,7 @@ void BigInt::set_size(const int size) {
 	}
 }
 
-int BigInt::assign_number(const int &value) {
+void BigInt::assign_number(const int &value) {
 	int number = abs(value);
 	if (value < 0) {
 		this->sign = -1;
@@ -60,16 +60,15 @@ int BigInt::assign_number(const int &value) {
 		v *= BASE;
 		n++;
 	}
-	return n;
-}
-
-BigInt::BigInt(const long long &value) {
-	int number = abs(value);
-	set_size(this->assign_number(value));
+	set_size(n);
 	for (int i = 0; i < this->size; i++) {
 		this->values[i] = number % BASE;
 		number = number / BASE;
 	}
+}
+
+BigInt::BigInt(const long long &value) {
+	assign_number(value);
 }
 
 BigInt::BigInt(const BigInt &that) {
@@ -109,7 +108,7 @@ std::ostream &operator<<(std::ostream &os, const BigInt &temp) {
 }
 
 void BigInt::assign(const char *string) {
-	int length = (int)strlen(string);
+	int length = strlen(string);
 	int k = 0;
 	if (string[0] == '-') {
 		this->sign = -1;
@@ -142,33 +141,22 @@ int a_bigger_b(const BigInt &a, const BigInt &b) {
 	int flag = 0;
 	int real_size_a = a.real_size();
 	int real_size_b = b.real_size();
-	if (real_size_a > real_size_b) {
-		flag = 1;
-	}
-	else if (real_size_b > real_size_a) {
-		flag = -1;
+	if (real_size_a != real_size_b) {
+		flag = real_size_a - real_size_b;
 	}
 	else {
-		for (int i = real_size_a - 1; i >= 0 && flag == 0; --i) {
-			if (a.values[i] > b.values[i]) {
-				flag = 1;
-			}
-			if (a.values[i] < b.values[i]) {
-				flag = -1;
-			}
+		int i = real_size_a - 1;
+		while (i >= 0 && a.values[i] == b.values[i]) {
+			i--;
 		}
+		flag = a.values[i] - b.values[i];
 	}
 	return flag;
 }
 
 BigInt operator+(const BigInt &a, const BigInt &b) {
 	size_t res_size;
-	if (a_bigger_b(a, b) == 1) {
-		res_size = a.size + 1;
-	}
-	else {
-		res_size = b.size + 1;
-	}
+	res_size = (a.size < b.size ? b.size : a.size) + 1;
 	BigInt res((size_t)res_size);
 	int rest = 0;
 	int sum = 0;
