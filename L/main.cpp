@@ -15,7 +15,7 @@ public:
 	BigIntegerOverflow();
 };
 
-BigIntegerOverflow::BigIntegerOverflow() : std::runtime_error("Division by zero") {}
+BigIntegerOverflow::BigIntegerOverflow() : std::runtime_error("Overflow") {}
 
 
 class BigInt {
