@@ -2,6 +2,7 @@
 #include <cstdlib>
 #include <iostream>
 #include <cmath>
+#include <iomanip>
 
 class Vector {
 	double x;
@@ -30,7 +31,7 @@ class Polygon;
 
 class Shape {
 public:
-	virtual void replace(const Vector &) = 0;
+	virtual void remove(const Vector &) = 0;
 	virtual bool contains_point(const Point &) = 0;
 	virtual bool cross_segment(const Segment &) = 0;
 };
@@ -45,8 +46,9 @@ public:
 	Point(const double x, const double y);
 	Point(const Point&);
 	Point &operator=(const Point &);
+	bool operator==(const Point &) const;
 	double distance(const Point &) const;
-	void replace(const Vector &);
+	void remove(const Vector &);
 	bool contains_point(const Point &);
 	bool cross_segment(const Segment &);
 	friend std::ostream &operator<<(std::ostream &, const Point &);
@@ -63,9 +65,11 @@ public:
 	Segment(const Point &, const Point &);
 	Segment(const Segment &);
 	Segment &operator=(const Segment &);
-	void replace(const Vector &);
+	void remove(const Vector &);
 	bool contains_point(const Point &);
-	bool cross_segment(const Segment &);
+	bool cross_segment(const Segment &); 
+	double distance_point(const Point &) const;
+	double distance_segment(const Segment &);
 };
 
 class Line : public Shape {
@@ -76,10 +80,16 @@ public:
 	Line();
 	Line(const Point &, const Point &);
 	Line(const Line &);
+	Line(const double, const double, const double);
 	Line &operator=(const Line &);
-	void replace(const Vector &);
+	void remove(const Vector &);
 	bool contains_point(const Point &);
 	bool cross_segment(const Segment &);
+	bool parallel(const Line &);
+	double distance_point(const Point &) const;
+	Point find_point();
+	Point line_intersection(const Line &);
+	Vector direct_vector();
 };
 
 class Ray : public Shape {
@@ -90,9 +100,10 @@ public:
 	Ray(const Point &, const Point &);
 	Ray(const Ray &);
 	Ray &operator=(const Ray &);
-	void replace(const Vector &);
+	void remove(const Vector &);
 	bool contains_point(const Point &);
 	bool cross_segment(const Segment &);
+	double distance_point(const Point &) const;
 };
 
 class Polygon : public Shape {
@@ -105,9 +116,11 @@ public:
 	Polygon(const Polygon &);
 	Polygon &operator=(const Polygon &);
 	~Polygon();
-	void replace(const Vector &);
+	void remove(const Vector &);
 	bool contains_point(const Point &);
 	bool cross_segment(const Segment &);
+	bool convex();
+	double square();
 };
 
 Vector::Vector() {
@@ -200,6 +213,10 @@ Point &Point::operator=(const Point &that) {
 	return *this;
 }
 
+bool Point::operator==(const Point &that) const {
+	return this->x == that.x && this->y == that.y;
+}
+
 double Point::distance(const Point &that) const {
 	return sqrt((this->x - that.x) * (this->x - that.x) + (this->y - that.y) * (this->y - that.y));
 }
@@ -217,7 +234,7 @@ std::istream &operator >> (std::istream &is, Point &temp) {
 	return is;
 }
 
-void Point::replace(const Vector &that) {
+void Point::remove(const Vector &that) {
 	this->x += that.get_x();
 	this->y += that.get_y();
 }
@@ -264,9 +281,9 @@ Point Segment::get_right() const {
 	return this->right;
 }
 
-void Segment::replace(const Vector &that) {
-	this->left.replace(that);
-	this->right.replace(that);
+void Segment::remove(const Vector &that) {
+	this->left.remove(that);
+	this->right.remove(that);
 }
 
 bool Segment::contains_point(const Point &that) {
@@ -279,6 +296,7 @@ bool Segment::contains_point(const Point &that) {
 bool Segment::cross_segment(const Segment &that) {
 	Line this_line(this->get_left(), this->get_right());
 	Line that_line(that.get_left(), that.get_right());
+
 	bool flag1 = this_line.cross_segment(that);
 	bool flag2 = that_line.cross_segment(*this);
 	double x1, y1, x2, y2, x3, y3, x4, y4;
@@ -293,6 +311,38 @@ bool Segment::cross_segment(const Segment &that) {
 	bool flag3 = (x2 >= x3) && (x1 <= x4) && (y2 >= y3) && (y1 <= y4);
 	return flag1 && flag2 && flag3;
 }
+
+double Segment::distance_point(const Point &that) const {
+	Ray ab(this->left, this->right);
+	Ray ba(this->right, this->left);
+	double res = (ab.distance_point(that) > ba.distance_point(that)) ? ab.distance_point(that) : ba.distance_point(that);
+	return res;
+}
+
+double Segment::distance_segment(const Segment &that) {
+	double res;
+	if (this->left == this->right) {
+		if (that.left == that.right) {
+			res = this->left.distance(that.left);
+		}
+		else {
+			res = that.distance_point(this->left);
+		}
+	}
+	else if (that.left == that.right) {
+		res = this->distance_point(that.left);
+	}
+	else if (this->cross_segment(that)) {
+		res = 0;
+	}
+	else {
+		double min1 = (this->distance_point(that.left) > this->distance_point(that.right)) ? this->distance_point(that.right) : this->distance_point(that.left);
+		double min2 = (that.distance_point(this->left) > that.distance_point(this->right)) ? that.distance_point(this->right) : that.distance_point(this->left);
+		res = (min1 > min2) ? min2 : min1;
+	}
+	return res;
+}
+
 
 //-------------------------------------
 
@@ -314,6 +364,12 @@ Line::Line(const Line &that) {
 	this->c = that.c;
 }
 
+Line::Line(const double a, const double b, const double c) {
+	this->a = a;
+	this->b = b;
+	this->c = c;
+}
+
 Line &Line::operator=(const Line &that) {
 	this->a = that.a;
 	this->b = that.b;
@@ -321,7 +377,7 @@ Line &Line::operator=(const Line &that) {
 	return *this;
 }
 
-void Line::replace(const Vector &that) {
+void Line::remove(const Vector &that) {
 	this->c += this->a * that.get_x() + this->b * that.get_y();
 }
 
@@ -331,6 +387,35 @@ bool Line::contains_point(const Point &that) {
 
 bool Line::cross_segment(const Segment &that) {
 	return (this->a * that.get_left().get_x() + this->b * that.get_left().get_y() + this->c) * (this->a * that.get_right().get_x() + this->b * that.get_right().get_y() + this->c) <= 0;
+}
+
+bool Line::parallel(const Line &that) {
+	return this->a * that.b - this->b * that.a == 0;
+}
+
+Point Line::find_point() {
+	Point res;
+	if (this->a != 0) {
+		res = Point(-1 * this->c / this->a, 0);
+	}
+	else {
+		res = Point(0, -1 * this->c / this->b);
+	}
+	return res;
+}
+
+double Line::distance_point(const Point &that) const {
+	return abs(this->a * that.get_x() + this->b * that.get_y() + this->c) / sqrt(this->a * this->a + this->b * this->b);
+}
+
+Point Line::line_intersection(const Line &that) {
+	Point res((this->b * that.c - this->c * that.b) / (this->a * that.b - this->b * that.a), (this->c * that.a - this->a * that.c) / (this->a * that.b - this->b * that.a));
+	return res;
+}
+
+Vector Line::direct_vector() {
+	Vector res(-1 * this->b, this->a);
+	return res;
 }
 
 //----------------------------------------------------------
@@ -356,9 +441,9 @@ Ray &Ray::operator=(const Ray &that) {
 	return *this;
 }
 
-void Ray::replace(const Vector &that) {
-	this->start.replace(that);
-	this->lay_on_ray.replace(that);
+void Ray::remove(const Vector &that) {
+	this->start.remove(that);
+	this->lay_on_ray.remove(that);
 }
 
 bool Ray::contains_point(const Point &that) {
@@ -379,6 +464,20 @@ bool Ray::cross_segment(const Segment &that) {
 		flag = ray_line.cross_segment(that) && !(start_that_left.cross_segment(right_ray_on_line));
 	}
 	return flag;
+}
+
+double Ray::distance_point(const Point &that) const {
+	Vector ray_vector(this->lay_on_ray.get_x() - this->start.get_x(), this->lay_on_ray.get_y() - this->start.get_y());
+	Vector point_ray_vector(that.get_x() - this->start.get_x(), that.get_y() - this->start.get_y());
+	Line ray_line(lay_on_ray, start);
+	double res = 0;
+	if (ray_vector * point_ray_vector >= 0) {
+		res = ray_line.distance_point(that);
+	}
+	else {
+		res = that.distance(this->start);
+	}
+	return res;
 }
 
 //-----------------------------------------------------
@@ -422,9 +521,9 @@ Polygon::~Polygon() {
 	delete[] this->data;
 }
 
-void Polygon::replace(const Vector &that) {
+void Polygon::remove(const Vector &that) {
 	for (int i = 0; i < this->amount; i++) {
-		this->data[i].replace(that);
+		this->data[i].remove(that);
 	}
 }
 
@@ -481,6 +580,47 @@ bool Polygon::cross_segment(const Segment &that) {
 		}
 	}
 	return flag;
+}
+
+bool Polygon::convex() {
+	Vector first(this->data[0].get_x() - this->data[this->amount - 1].get_x(), this->data[0].get_y() - this->data[this->amount - 1].get_y());
+	Vector second(this->data[1].get_x() - this->data[0].get_x(), this->data[1].get_y() - this->data[0].get_y());
+	bool flag = true;
+	double mult = first.vector_mult(second);
+	for (int i = 0; i < this->amount - 1; i++) {
+		if (i == this->amount - 2) {
+			first = Vector(this->data[this->amount - 1].get_x() - this->data[this->amount - 2].get_x(), this->data[this->amount - 1].get_y() - this->data[this->amount - 2].get_y());
+			second = Vector(this->data[0].get_x() - this->data[this->amount - 1].get_x(), this->data[0].get_y() - this->data[this->amount - 1].get_y());
+		}
+		else {
+			first = Vector(this->data[i + 1].get_x() - this->data[i].get_x(), this->data[i + 1].get_y() - this->data[i].get_y());
+			second = Vector(this->data[i + 2].get_x() - this->data[i + 1].get_x(), this->data[i + 2].get_y() - this->data[i + 1].get_y());
+		}
+		if (mult == 0) {
+			mult = first.vector_mult(second);
+		}
+		if (first.vector_mult(second) * mult < 0) {
+			flag = false;
+		}
+	}
+	return flag;
+}
+
+double Polygon::square() {
+	Vector first, second;
+	second = Vector(this->data[0].get_x(), this->data[0].get_y());
+	double res = 0;
+	for (int i = 0; i < this->amount; i++) {
+		first = second;
+		if (i == this->amount - 1) {
+			second = Vector(this->data[0].get_x(), this->data[0].get_y());
+		}
+		else {
+			second = Vector(this->data[i + 1].get_x(), this->data[i + 1].get_y());
+		}
+		res += first.vector_mult(second) / 2;
+	}
+	return abs(res);
 }
 
 int main() {}
